@@ -1,0 +1,5 @@
+.stack-work/
+standup.cabal
+*~
+*.swp
+*.swo
