@@ -1,6 +1,18 @@
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
+
 module Main (main) where
 
-import Options.Applicative hiding (infoParser)
+import           Control.Exception
+import           Data.Aeson hiding (Options)
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as BSL
+import           Data.String.Utils
+import qualified Data.Yaml as Yaml
+import           GHC.Generics
+import           Options.Applicative hiding (infoParser)
+import           System.IO.Error
+import           System.Directory
 
 type ItemIndex = Int
 type ItemTitle = String
@@ -8,12 +20,18 @@ type ItemDescription = Maybe String
 type ItemPriority = Maybe String
 type ItemDueBy = Maybe String
 
+data StandupList = StandupList [Item] deriving (Generic, Show)
+instance ToJSON StandupList
+instance FromJSON StandupList
+
 data Item = Item
     { title :: ItemTitle
     , description :: ItemDescription
     , priority :: ItemPriority
     , dueBy :: ItemDueBy
-    } deriving Show
+    } deriving (Generic, Show)
+instance ToJSON Item
+instance FromJSON Item
 
 data ItemUpdate = ItemUpdate
     { titleUpdate :: Maybe ItemTitle
@@ -137,8 +155,16 @@ itemDueByValueParser =
 
 main :: IO ()
 main = do
-    Options dataPath command <- execParser (info (optionsParser) (progDesc "Standup manager"))
-    run dataPath command 
+    Options dataPath command <- execParser (info (optionsParser) (progDesc "Standup list"))
+    --run dataPath command
+    homeDir <- getHomeDirectory
+    let expandedDataPath = replace "~" homeDir dataPath
+    writeStandupList expandedDataPath $ StandupList
+        [ Item "title1" (Just "description1") (Just "priority1") (Just "dueBy1")
+        , Item "title2" (Just "description2") (Just "priority2") (Just "dueBy2")
+        ]
+    standupList <- readStandupList expandedDataPath
+    print standupList
 
 run :: FilePath -> Command -> IO ()
 run dataPath Info = putStrLn "Info"
@@ -148,3 +174,16 @@ run dataPath (Add item) = putStrLn $ "Add: item=" ++ show item
 run dataPath (View idx) = putStrLn $ "View idx=" ++ show idx
 run dataPath (Update idx itemUpdate) = putStrLn $ "Update: idx=" ++ show idx ++ "itemUpdate=" ++ show itemUpdate
 run dataPath (Remove idx) = putStrLn $ "Remove idx=" ++ show idx
+
+writeStandupList :: FilePath -> StandupList -> IO ()
+writeStandupList dataPath standupList = BS.writeFile dataPath (Yaml.encode standupList)
+
+readStandupList :: FilePath -> IO StandupList
+readStandupList dataPath = do
+    mbStandupList <- catchJust
+        (\e -> if isDoesNotExistError e then Just () else Nothing)
+        (BS.readFile dataPath >>= return . Yaml.decode)
+        (\_ -> return $ Just (StandupList []))
+    case mbStandupList of
+        Nothing -> error "YAML file is corrupt"
+        Just standupList -> return standupList
