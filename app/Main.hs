@@ -8,6 +8,7 @@ import           Data.Aeson hiding (Options)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
 import           Data.String.Utils
+import           Data.Time
 import qualified Data.Yaml as Yaml
 import           GHC.Generics
 import           Options.Applicative hiding (infoParser)
@@ -18,7 +19,7 @@ type ItemIndex = Int
 type ItemTitle = String
 type ItemDescription = Maybe String
 type ItemPriority = Maybe String
-type ItemDueBy = Maybe String
+type ItemDueBy = Maybe LocalTime
 
 data StandupList = StandupList [Item] deriving (Generic, Show)
 instance ToJSON StandupList
@@ -147,9 +148,16 @@ itemPriorityValueParser :: Parser String
 itemPriorityValueParser = 
     strOption (long "priority" <> short 'p' <> metavar "PRIORITY" <> help "priority")
 
-itemDueByValueParser :: Parser String
+itemDueByValueParser :: Parser LocalTime
 itemDueByValueParser = 
-    strOption (long "due-by" <> short 'b' <> metavar "DUEBY" <> help "due-by data/time")
+    option readDateTime (long "due-by" <> short 'b' <> metavar "DUEBY" <> help "due-by data/time")
+    where
+        readDateTime = eitherReader $ \arg ->
+            case parseDateTimeMaybe arg of
+                (Just dateTime) -> Right dateTime
+                Nothing -> Left $ "Date/time string must be in " ++ dateTimeFormat ++ " format"
+        parseDateTimeMaybe = parseTimeM False defaultTimeLocale dateTimeFormat
+        dateTimeFormat = "%Y/%m/%d %H:%M:%S"
 
 
 
@@ -159,9 +167,12 @@ main = do
     --run dataPath command
     homeDir <- getHomeDirectory
     let expandedDataPath = replace "~" homeDir dataPath
+
+    let dueBy = LocalTime (ModifiedJulianDay 0) (TimeOfDay 0 0 0)
+
     writeStandupList expandedDataPath $ StandupList
-        [ Item "title1" (Just "description1") (Just "priority1") (Just "dueBy1")
-        , Item "title2" (Just "description2") (Just "priority2") (Just "dueBy2")
+        [ Item "title1" (Just "description1") (Just "priority1") (Just dueBy)
+        , Item "title2" (Just "description2") (Just "priority2") (Just dueBy)
         ]
     standupList <- readStandupList expandedDataPath
     print standupList
