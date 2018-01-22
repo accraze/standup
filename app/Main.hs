@@ -18,8 +18,12 @@ import           System.Directory
 type ItemIndex = Int
 type ItemTitle = String
 type ItemDescription = Maybe String
-type ItemPriority = Maybe String
+type ItemPriority = Maybe Priority
 type ItemDueBy = Maybe LocalTime
+
+data Priority = Low | Normal | High deriving (Generic, Show)
+instance ToJSON Priority
+instance FromJSON Priority
 
 data StandupList = StandupList [Item] deriving (Generic, Show)
 instance ToJSON StandupList
@@ -144,9 +148,16 @@ itemDescriptionValueParser :: Parser String
 itemDescriptionValueParser =
     strOption (long "desc" <> short 'd' <> metavar "DESCRIPTION" <> help "description")
 
-itemPriorityValueParser :: Parser String
+itemPriorityValueParser :: Parser Priority
 itemPriorityValueParser = 
-    strOption (long "priority" <> short 'p' <> metavar "PRIORITY" <> help "priority")
+    option readPriority (long "priority" <> short 'p' <> metavar "PRIORITY" <> help "priority")
+    where
+        readPriority = eitherReader $ \arg ->
+            case arg of
+                "1" -> Right Low
+                "2" -> Right Normal
+                "3" -> Right High
+                _ -> Left $ "Invalid priority value " ++ arg
 
 itemDueByValueParser :: Parser LocalTime
 itemDueByValueParser = 
@@ -171,8 +182,8 @@ main = do
     let dueBy = LocalTime (ModifiedJulianDay 0) (TimeOfDay 0 0 0)
 
     writeStandupList expandedDataPath $ StandupList
-        [ Item "title1" (Just "description1") (Just "priority1") (Just dueBy)
-        , Item "title2" (Just "description2") (Just "priority2") (Just dueBy)
+        [ Item "title1" (Just "description1") (Just High) (Just dueBy)
+        , Item "title2" (Just "description2") (Just Normal) (Just dueBy)
         ]
     standupList <- readStandupList expandedDataPath
     print standupList
