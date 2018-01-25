@@ -183,8 +183,8 @@ main = do
     run expandedDataPath command
 
 run :: FilePath -> Command -> IO ()
-run dataPath Info = putStrLn "Info"
-run dataPath Init = putStrLn "Init"
+run dataPath Info = showInfo dataPath
+run dataPath Init = initItems dataPath
 run dataPath List = viewItems dataPath
 run dataPath (Add item) = addItem dataPath item
 run dataPath (View idx) = viewItem dataPath idx
@@ -224,6 +224,20 @@ readStandupList dataPath = do
         Nothing -> error "YAML file is corrupt"
         Just standupList -> return standupList
 
+showInfo :: FilePath -> IO ()
+showInfo dataPath = do
+    putStrLn $ "Data file path: " ++ dataPath
+    exists <- doesFileExist dataPath
+    if exists
+    then do
+        s <- BS.readFile dataPath
+        let mbStandupList = Yaml.decode s
+        case mbStandupList of
+            Nothing -> putStrLn $ "Status: file is invalid"
+            Just (StandupList items) -> putStrLn $ "Status: contains " ++ show (length items) ++ " items"
+    else putStrLn $ "Status: file does not exist"
+
+
 showItem :: ItemIndex -> Item -> IO ()
 showItem idx (Item title mbDescription mbPriority mbDueBy) = do
     putStrLn $ "[" ++ show idx ++ "]: " ++ title
@@ -244,6 +258,9 @@ viewItems dataPath = do
     forM_
         (zip [0..] items)
         (\(idx, item) -> showItem idx item)
+
+initItems :: FilePath -> IO ()
+initItems dataPath = writeStandupList dataPath (StandupList [])
 
 addItem :: FilePath -> Item -> IO ()
 addItem dataPath item = do
