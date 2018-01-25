@@ -185,7 +185,7 @@ run :: FilePath -> Command -> IO ()
 run dataPath Info = putStrLn "Info"
 run dataPath Init = putStrLn "Init"
 run dataPath List = putStrLn "List"
-run dataPath (Add item) = putStrLn $ "Add: item=" ++ show item
+run dataPath (Add item) = addItem dataPath item
 run dataPath (View idx) = viewItem dataPath idx
 run dataPath (Update idx itemUpdate) = putStrLn $ "Update: idx=" ++ show idx ++ "itemUpdate=" ++ show itemUpdate
 run dataPath (Remove idx) = putStrLn $ "Remove idx=" ++ show idx
@@ -216,6 +216,12 @@ showItem idx (Item title mbDescription mbPriority mbDueBy) = do
 showField :: (a -> String) -> Maybe a -> String
 showField f (Just x) = f x
 showField _ Nothing = "(not set)"
+
+addItem :: FilePath -> Item -> IO ()
+addItem dataPath item = do
+    StandupList items <- readStandupList dataPath
+    let newStandupList = StandupList (item : items)
+    writeStandupList dataPath newStandupList
 
 viewItem :: FilePath -> ItemIndex -> IO ()
 viewItem dataPath idx = do
