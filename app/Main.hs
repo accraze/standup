@@ -4,6 +4,7 @@
 module Main (main) where
 
 import           Control.Exception
+import           Control.Monad
 import           Data.Aeson hiding (Options)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
@@ -184,7 +185,7 @@ main = do
 run :: FilePath -> Command -> IO ()
 run dataPath Info = putStrLn "Info"
 run dataPath Init = putStrLn "Init"
-run dataPath List = putStrLn "List"
+run dataPath List = viewItems dataPath
 run dataPath (Add item) = addItem dataPath item
 run dataPath (View idx) = viewItem dataPath idx
 run dataPath (Update idx itemUpdate) = updateItem dataPath idx itemUpdate
@@ -236,6 +237,13 @@ showItem idx (Item title mbDescription mbPriority mbDueBy) = do
 showField :: (a -> String) -> Maybe a -> String
 showField f (Just x) = f x
 showField _ Nothing = "(not set)"
+
+viewItems :: FilePath -> IO ()
+viewItems dataPath = do
+    StandupList items <- readStandupList dataPath
+    forM_
+        (zip [0..] items)
+        (\(idx, item) -> showItem idx item)
 
 addItem :: FilePath -> Item -> IO ()
 addItem dataPath item = do
