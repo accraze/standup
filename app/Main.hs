@@ -188,7 +188,17 @@ run dataPath List = putStrLn "List"
 run dataPath (Add item) = addItem dataPath item
 run dataPath (View idx) = viewItem dataPath idx
 run dataPath (Update idx itemUpdate) = putStrLn $ "Update: idx=" ++ show idx ++ "itemUpdate=" ++ show itemUpdate
-run dataPath (Remove idx) = putStrLn $ "Remove idx=" ++ show idx
+run dataPath (Remove idx) = removeItem dataPath idx
+
+removeAt :: [a] -> Int -> Maybe [a]
+removeAt xs idx =
+    if idx < 0 || idx >= length xs
+    then Nothing
+    else
+        let (before, after) = splitAt idx xs
+            _ : after' = after
+            xs' = before ++ after'
+        in Just xs'
 
 writeStandupList :: FilePath -> StandupList -> IO ()
 writeStandupList dataPath standupList = BS.writeFile dataPath (Yaml.encode standupList)
@@ -230,3 +240,13 @@ viewItem dataPath idx = do
     case mbItem of
         Nothing -> putStrLn "Invalid item index"
         Just item -> showItem idx item
+
+removeItem :: FilePath -> ItemIndex -> IO ()
+removeItem dataPath idx = do
+    StandupList items <- readStandupList dataPath
+    let mbItems = items `removeAt` idx
+    case mbItems of
+        Nothing -> putStrLn "Invalid item index"
+        Just items' -> do
+            let standupList = StandupList items'
+            writeStandupList dataPath standupList
