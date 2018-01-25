@@ -3,5 +3,6 @@ packages:
 - .
 extra-deps:
 - optparse-applicative-0.12.1.0
+- listsafe-0.1.0.1
 - process-1.4.3.0
 resolver: lts-10.3

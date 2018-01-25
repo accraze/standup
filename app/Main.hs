@@ -7,11 +7,13 @@ import           Control.Exception
 import           Data.Aeson hiding (Options)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as BSL
+import           Data.List.Safe ((!!))
 import           Data.String.Utils
 import           Data.Time
 import qualified Data.Yaml as Yaml
 import           GHC.Generics
 import           Options.Applicative hiding (infoParser)
+import           Prelude hiding ((!!))
 import           System.IO.Error
 import           System.Directory
 
@@ -175,25 +177,16 @@ itemDueByValueParser =
 main :: IO ()
 main = do
     Options dataPath command <- execParser (info (optionsParser) (progDesc "Standup list"))
-    --run dataPath command
     homeDir <- getHomeDirectory
     let expandedDataPath = replace "~" homeDir dataPath
-
-    let dueBy = LocalTime (ModifiedJulianDay 0) (TimeOfDay 0 0 0)
-
-    writeStandupList expandedDataPath $ StandupList
-        [ Item "title1" (Just "description1") (Just High) (Just dueBy)
-        , Item "title2" (Just "description2") (Just Normal) (Just dueBy)
-        ]
-    standupList <- readStandupList expandedDataPath
-    print standupList
+    run expandedDataPath command
 
 run :: FilePath -> Command -> IO ()
 run dataPath Info = putStrLn "Info"
 run dataPath Init = putStrLn "Init"
 run dataPath List = putStrLn "List"
 run dataPath (Add item) = putStrLn $ "Add: item=" ++ show item
-run dataPath (View idx) = putStrLn $ "View idx=" ++ show idx
+run dataPath (View idx) = viewItem dataPath idx
 run dataPath (Update idx itemUpdate) = putStrLn $ "Update: idx=" ++ show idx ++ "itemUpdate=" ++ show itemUpdate
 run dataPath (Remove idx) = putStrLn $ "Remove idx=" ++ show idx
 
@@ -209,3 +202,25 @@ readStandupList dataPath = do
     case mbStandupList of
         Nothing -> error "YAML file is corrupt"
         Just standupList -> return standupList
+
+showItem :: ItemIndex -> Item -> IO ()
+showItem idx (Item title mbDescription mbPriority mbDueBy) = do
+    putStrLn $ "[" ++ show idx ++ "]: " ++ title
+    putStr " Description: "
+    putStrLn $ showField id mbDescription
+    putStr " Priortiy: "
+    putStrLn $ showField show mbPriority
+    putStr " Due by: "
+    putStrLn $ showField (formatTime defaultTimeLocale "%Y/%m/%d %H:%M:%S") mbDueBy
+
+showField :: (a -> String) -> Maybe a -> String
+showField f (Just x) = f x
+showField _ Nothing = "(not set)"
+
+viewItem :: FilePath -> ItemIndex -> IO ()
+viewItem dataPath idx = do
+    StandupList items <- readStandupList dataPath
+    let mbItem = items !! idx
+    case mbItem of
+        Nothing -> putStrLn "Invalid item index"
+        Just item -> showItem idx item
